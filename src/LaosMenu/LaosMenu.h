@@ -70,6 +70,7 @@ private:
   int args[5];
   unsigned char waitup, timeout;
   char *sarg;
+  char msgbuf[64];       // text of the last SetScreen(string) message
   int speed;
   char jobname[MAXFILESIZE];
   

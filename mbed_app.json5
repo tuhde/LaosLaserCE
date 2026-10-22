@@ -3,7 +3,13 @@
         "*": {
             "platform.stdio-baud-rate": 115200,
             "platform.stdio-buffered-serial": 1,
-            "target.semihosting-enabled": false
+            "target.semihosting-enabled": false,
+            "platform.heap-stats-enabled": true,
+            "platform.thread-stats-enabled": true,
+            // RAM is tight (64 KB): size the stacks to what is used (see print_threads() in main.cpp)
+            "events.shared-stacksize": 1024,
+            "events.shared-eventsize": 512,
+            "rtos.main-thread-stack-size": 2560
         },
         "LPC1768": {
             "target.components_add": ["SD"],

@@ -115,6 +115,7 @@ void TFTPServer::ConnectRead(char* buff) {
         fp = sd.openfile(filename, "r");
     if (fp == NULL) {
         state  = listen;
+        printf("TFTP: cannot open '%s' for reading, errno %d\n\r", filename, errno);
         Err("Could not read file");
     } else {
         // file ready for reading
@@ -150,6 +151,7 @@ void TFTPServer::ConnectWrite(char* buff) {
     else
         fp = sd.openfile(filename, "w");
     if (fp == NULL) {
+        printf("TFTP: cannot open '%s' for writing, errno %d\n\r", filename, errno);
         Err("Could not open file to write");
         state  = listen;
         strcpy(remote_ip,"");
@@ -334,6 +336,7 @@ void TFTPServer::poll() {
 	                        sendBlock();
 	                    } else { //EOF
 	                        fclose(fp);
+	                        fp = NULL;
 	                        state = listen;
                             strcpy(remote_ip,"");
 	                    }
@@ -366,6 +369,14 @@ void TFTPServer::poll() {
 	                        fwrite(data, 1,len-4, fp);
 	                        blockcnt++;
 	                        dupcnt = 0;
+	                        if (len < 516) {    // short block: this was the last one
+	                            fclose(fp);
+	                            fp = NULL;
+	                            strcpy(remote_ip,"");
+	                            state = listen;
+	                            filecnt++;
+	                            printf("File receive finished\n");
+	                        }
 	                    } else { // mismatch in block nr
 	                        if ((blockcnt+1) < block) { // too high
                                 Err("Packet count mismatch");
@@ -380,14 +391,6 @@ void TFTPServer::poll() {
 	                            }
 	                        }
 	                    }
-                        if (len<516) {
-                            Ack(blockcnt);
-                            fclose(fp);
-                            strcpy(remote_ip,"");
-                            state = listen;
-                            filecnt++;
-                            printf("File receive finished\n");
-                        }
 	                    break; // case 0x03
                     }
 	                default: {

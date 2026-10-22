@@ -14,6 +14,9 @@
 // staged image size in bytes, rounded up to PAGE_SIZE
 static uint32_t staged_size;
 
+// one page buffer shared by staging and the RAM routine (never used at the same time)
+static uint8_t ram_page[PAGE_SIZE] __attribute__((aligned(4)));
+
 static bool ram_addr_ok(uint32_t sp)
 {
     return (sp >= 0x10000000u && sp <= 0x10008000u) || (sp >= 0x2007C000u && sp <= 0x20084000u);
@@ -40,7 +43,7 @@ int firmware_check_header(const uint8_t *image, uint32_t size)
 
 int firmware_stage(FILE *fp)
 {
-    static uint8_t page[PAGE_SIZE] __attribute__((aligned(4)));
+    uint8_t *page = ram_page;
 
     // determine size
     if (fseek(fp, 0, SEEK_END) != 0)
@@ -104,8 +107,6 @@ int firmware_stage(FILE *fp)
 #define RAMFUNC __attribute__((section(".data.laos_ramfunc"), noinline, optimize("O1,no-tree-loop-distribute-patterns")))
 
 typedef void (*iap_fn_t)(uint32_t *cmd, uint32_t *res);
-
-static uint8_t ram_page[PAGE_SIZE] __attribute__((aligned(4)));
 
 RAMFUNC static uint32_t sector_of(uint32_t addr)
 {

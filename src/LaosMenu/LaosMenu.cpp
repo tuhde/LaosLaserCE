@@ -192,8 +192,10 @@ void LaosMenu::SetScreen(const std::string& msg) {
     // } else if ( msg[0] == 0 ) {
     //    screen = MAIN;
     } else {
-        sarg = new char[msg.size()+1];
-        strcpy(sarg, msg.c_str());
+        // keep the text in a member buffer: allocating it for every call leaked heap
+        strncpy(msgbuf, msg.c_str(), sizeof(msgbuf) - 1);
+        msgbuf[sizeof(msgbuf) - 1] = 0;
+        sarg = msgbuf;
         screen = STARTUP;
     }
     prevscreen = -1; // force update

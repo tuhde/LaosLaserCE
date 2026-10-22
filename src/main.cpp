@@ -70,6 +70,39 @@ Timer systime;
 // Config
 GlobalConfig *cfg;
 
+// print heap usage: current/peak use and total heap size (needs platform.heap-stats-enabled)
+// size of the largest block malloc() can currently deliver (binary search)
+static size_t largest_free_block(size_t limit)
+{
+  size_t lo = 0, hi = limit;
+  while (hi - lo > 16) {
+    size_t mid = (lo + hi) / 2;
+    void *p = malloc(mid);
+    if (p) { free(p); lo = mid; } else hi = mid;
+  }
+  return lo;
+}
+
+static void print_mem(const char *where)
+{
+  mbed_stats_heap_t h;
+  mbed_stats_heap_get(&h);
+  size_t largest = largest_free_block(h.reserved_size);
+  mbed_stats_heap_get(&h);    // again: the probing above counts as allocation failures
+  printf("MEM %s: heap used %lu, peak %lu, total %lu, free %lu, alloc failures %lu, largest block %lu\n\r", where,
+         (unsigned long)h.current_size, (unsigned long)h.max_size, (unsigned long)h.reserved_size,
+         (unsigned long)(h.reserved_size - h.current_size), (unsigned long)h.alloc_fail_cnt, (unsigned long)largest);
+}
+
+static void print_threads()
+{
+  mbed_stats_thread_t t[12];
+  int n = mbed_stats_thread_get_each(t, 12);
+  for (int i = 0; i < n; i++)
+    printf("THREAD %-12s stack size %5lu, max used %5lu\n\r", t[i].name ? t[i].name : "?",
+           (unsigned long)t[i].stack_size, (unsigned long)(t[i].stack_size - t[i].stack_space));
+}
+
 // Protos
 void main_nodisplay();
 void main_menu();
@@ -136,6 +169,8 @@ int main()
   ThisThread::sleep_for(1s);
   
   printf("RUN...\n");
+  print_mem("boot");
+  print_threads();
   
   // Wait for key, and then home
   
@@ -197,6 +232,11 @@ void main_nodisplay() {
        srv->getFilename(name);
        printf("Now processing file: '%s'\n\r", name);
        FILE *in = sd.openfile(name, "r");
+       if (in == NULL) {
+         printf("Cannot open job file '%s' (errno %d)\n\r", name, errno);
+         print_mem("open failed");
+         continue;
+       }
        while (!feof(in))
        { 
          while (!mot->ready() );
@@ -206,6 +246,7 @@ void main_nodisplay() {
        removefile(name);
        // done
        printf("DONE!...\n");
+       print_mem("after job");
 	   while (!mot->ready() );
        mot->moveToAbsolute(cfg->xrest, cfg->yrest, cfg->zrest);
     }
