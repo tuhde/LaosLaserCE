@@ -35,6 +35,7 @@ endif()
 
 add_executable(laser
     src/main.cpp
+    src/mac_address.cpp
     src/global.cpp
     src/ConfigFile/ConfigFile.cpp
     src/LaosMotion/pins.cpp
