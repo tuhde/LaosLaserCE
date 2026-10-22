@@ -26,14 +26,24 @@
  *
  */
 #include "mbed.h"
-#include "SDFileSystem.h"
+#include "SDBlockDevice.h"
+#include "FATFileSystem.h"
 #include "EthernetInterface.h"
 
-// USB Serial
-Serial pc(USBTX, USBRX); // tx, rx
+// USB Serial: the console (stdin/stdout), read without blocking
+static FileHandle *pc = mbed::mbed_file_handle(STDIN_FILENO);
+
+static bool readable() { return pc->poll(POLLIN) & POLLIN; }
+
+static int getkey()
+{
+  char c;
+  return pc->read(&c, 1) == 1 ? c : 0;
+}
 
 // SD card
-SDFileSystem sd(p11, p12, p13, p14, "sd");
+SDBlockDevice sdbd(p11, p12, p13, p14);
+FATFileSystem sd("sd");
 
 // Ethernet
 EthernetInterface eth;
@@ -59,6 +69,11 @@ DigitalIn xhome(p8);
 DigitalIn yhome(p17);
 DigitalIn zmin(p15);
 DigitalIn zmax(p16);
+
+static int elapsed_ms(Timer &t)
+{
+  return std::chrono::duration_cast<std::chrono::milliseconds>(t.elapsed_time()).count();
+}
 
 // motors
 DigitalOut enable(p7);
@@ -89,11 +104,11 @@ void home()
   while ( 1 )
   {
     xstep = ystep = 0;
-    wait(0.0001);
+    wait_us(100);
     xstep = xhome;
     ystep = yhome;
     zstep = zmin;
-    wait(0.0001);
+    wait_us(100);
     led1 = !xhome;    
     led2 = !yhome;
     led3 = !zmin;
@@ -109,16 +124,18 @@ void home()
 **/
 int main() 
 {
-  // enable serial communication
-  pc.baud(115200);
-
   // enable I2C display communcation
   i2c.frequency(_I2C_BAUD);
 
   // test networking 
-  eth.init();
-  eth.connect();
-  printf("IP Address is: %s\n\r", eth.getIPAddress());
+  SocketAddress ip;
+  if (eth.connect() == 0 && eth.get_ip_address(&ip) == 0)
+    printf("IP Address is: %s\n\r", ip.get_ip_address());
+  else
+    printf("No network connection\n\r");
+
+  if (sd.mount(&sdbd) != 0)
+    printf("SD card not available\n\r");
 
   FILE *test1=NULL, *test2=NULL;
   led1 = led2 = led3 = led4 = 1;
@@ -132,7 +149,7 @@ int main()
   zmax.mode(PullUp); 
   
   char buf[512];
-  char *help = "\n\r\n\r\n\rLaOS Test program\n\r"
+  const char *help = "\n\r\n\r\n\rLaOS Test program\n\r"
    __DATE__ " " __TIME__ "\n\r"
    "++++++++++++++++++\n\r"
    "Use these keys to test the functionality of the board:\n\r"
@@ -162,8 +179,8 @@ int main()
     led2 = yhome;
     led3 = zmin;
     led4 = zmax;
-    if ( pc.readable() )
-      test = pc.getc();
+    if ( readable() )
+      test = getkey();
     else 
       test = 0;
     switch( test )
@@ -191,9 +208,9 @@ int main()
           printf("pulsing output for 1000 pulses sec at 500Hz or 10kHz...\n");
           for(i=0;i<1000;i++)
           {
-            wait((test == 'f' ? 0.001 : 0.00005));
+            wait_us(test == 'f' ? 1000 : 50);
             *io = 1;
-            wait((test == 'f' ? 0.001 : 0.00005));
+            wait_us(test == 'f' ? 1000 : 50);
             *io = 0;
           }
         
@@ -203,10 +220,12 @@ int main()
         memset(buf,0,sizeof(buf));
         printf("Testing IO board SD card: Write...\n\r");
         test1 = fopen("/sd/text.txt", "wb");
+        if (test1 == NULL) { printf("Cannot write /sd/text.txt\n\r"); break; }
         fwrite("bla bla\n",8, 1, test1); 
         fclose(test1);
         printf("Testing IO board SD card: Read...\n\r");
         test1 = fopen("/sd/text.txt", "rb");
+        if (test1 == NULL) { printf("Cannot read /sd/text.txt\n\r"); break; }
         fread(&buf,8, 1, test1); 
         printf("Result: '%s'\n\r", buf);
         fclose(test1);
@@ -215,29 +234,33 @@ int main()
         printf("SD card speed test (writing and reading 1MByte file\n");
         memset(buf,23,sizeof(buf));
         test2 = fopen("/sd/test.bin", "wb");
+        if (test2 == NULL) { printf("Cannot write /sd/test.bin\n\r"); break; }
         t.reset();
         t.start();
-        for(i=0;i<sizeof(buf);i++)
-          buf[i] = (char)t.read_ms();
+        for(i=0;i<(int)sizeof(buf);i++)
+          buf[i] = (char)elapsed_ms(t);
          t.stop(); t.reset(); t.start();
         for(i=0;i<200;i++)
           fwrite(buf,sizeof(buf), 1, test2); 
         t.stop();
         fclose(test2);
-        printf("Write 1MByte: %d msec\n\r", (int)t.read_ms());
+        printf("Write 1MByte: %d msec\n\r", elapsed_ms(t));
         test2 = fopen("/sd/test.bin", "rb");
+        if (test2 == NULL) { printf("Cannot read /sd/test.bin\n\r"); break; }
         t.reset();
         t.start();
         while( fread(&buf, sizeof(buf), 1, test2) > 0 );
         t.stop();
-        printf("Read 1MByte: %d msec\n\r", (int)t.read_ms());
+        printf("Read 1MByte: %d msec\n\r", elapsed_ms(t));
+        fclose(test2);
+        break;
       case 'i': 
         printf("I2C test:\n\r");
         char s[48];
         sprintf(s," 0123456789ABCDEF1234567890ABCDEF");
         s[0] = 0xFF;
         i2c.write(_I2C_ADDRESS, s, strlen(s));
-        wait(3);
+        ThisThread::sleep_for(3s);
         i2c.read(_I2C_ADDRESS, s, 48);
         sprintf(iline," Key read: %c", s[0]);
         i2c.write(_I2C_ADDRESS, iline, strlen(iline));
@@ -248,15 +271,15 @@ int main()
         can.reset();
         t.start();
         can.reset();
-        while( !pc.readable() )
+        while( !readable() )
         {
-          if ( t > 1.0 ) 
+          if ( t.elapsed_time() > 1s ) 
           {
             t.reset();
             can.write(CANMessage(10, &key, 1));
             key++;
           }
-          wait(0.1);
+          ThisThread::sleep_for(100ms);
           if(can.read(msg)) 
             printf("Message received: id=%d, len=%d, data[0]=%d\n\n\r", (int)msg.id, (int)msg.len, (int)msg.data[0]);
    
@@ -276,9 +299,9 @@ int main()
         sprintf(s," Key read: %c", key);
         s[0] = 0xFF;
         i2c.write(_I2C_ADDRESS, s, strlen(s));
-        wait(0.2);
+        ThisThread::sleep_for(200ms);
         if (key == '7') {
-            wait(1);
+            ThisThread::sleep_for(1s);
             i2c.write(_I2C_ADDRESS, iline, 17);
         }
         i2c.read(_I2C_ADDRESS, s, 48);

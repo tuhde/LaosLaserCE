@@ -75,3 +75,8 @@ mbed_set_post_build(laser)
 add_executable(ticktest ticktest/main.cpp)
 target_link_libraries(ticktest PRIVATE mbed-os)
 mbed_set_post_build(ticktest)
+
+# Board I/O test program (inputs, outputs, SD, I2C, CAN, Ethernet)
+add_executable(iotest iotest_board/main.cpp)
+target_link_libraries(iotest PRIVATE mbed-os mbed-storage-sd mbed-storage-fat mbed-netsocket)
+mbed_set_post_build(iotest)
