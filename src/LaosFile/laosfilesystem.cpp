@@ -348,6 +348,11 @@ void printdir() {
     }
 }
 
+// directory entries offered in the job lists: not the long name table and not the configuration
+static bool isJobListEntry(const char *dname) {
+    return strncmp(dname, "longname.sy", 11) != 0 && strcasecmp(dname, "config.txt") != 0;
+}
+
 void getprevjob(char *name) {
     extern LaosFileSystem sd;
     char shortname[SHORTFILESIZE], last[SHORTFILESIZE];
@@ -358,7 +363,7 @@ void getprevjob(char *name) {
     d = opendir("/sd");
     if(d != NULL) {
         while((p = readdir(d)) != NULL) {
-            if (strncmp(p->d_name, "longname.sy",11)) { // skip longname.sy*
+            if (isJobListEntry(p->d_name)) {    // skip longname.sy* and config.txt
                 if (! strcmp(shortname, p->d_name)) {   // shortname = current entry
                     if (strcmp(last, "")) {
                         sd.getlongname(name, last);     // return entry before
@@ -389,7 +394,7 @@ void getnextjob(char *name) {
     d = opendir("/sd");
     if(d != NULL) {
         while((p = readdir(d)) != NULL) {
-            if (strncmp(p->d_name, "longname.sy",11)) { // skip longname.sy*
+            if (isJobListEntry(p->d_name)) {    // skip longname.sy* and config.txt
                 if (! strcmp(shortname, last)) {        // if last was shortname
                     sd.getlongname(name, p->d_name);    //    return current
                     closedir(d);
