@@ -19,11 +19,6 @@ set(PYOCD_CLOCK_SPEED 1M)
 
 add_subdirectory(${MBED_PATH})
 
-# Step 1: bring-up program, blinks LEDs and prints over the USB serial port.
-add_executable(hello hello/main.cpp)
-target_link_libraries(hello PRIVATE mbed-os)
-mbed_set_post_build(hello)
-
 # LaOS controller firmware
 find_package(Git QUIET)
 set(GIT_HASH "")
@@ -70,11 +65,6 @@ target_include_directories(laser PRIVATE
 target_compile_definitions(laser PRIVATE __GIT_HASH="${GIT_HASH}" LAOS_HAVE_SD)
 target_link_libraries(laser PRIVATE mbed-os mbed-storage-sd mbed-storage-fat mbed-netsocket)
 mbed_set_post_build(laser)
-
-# Ticker rate/jitter measurement for the stepper timer (risk check)
-add_executable(ticktest ticktest/main.cpp)
-target_link_libraries(ticktest PRIVATE mbed-os)
-mbed_set_post_build(ticktest)
 
 # Board I/O test program (inputs, outputs, SD, I2C, CAN, Ethernet)
 add_executable(iotest iotest_board/main.cpp)

@@ -2,6 +2,27 @@
 Changelog for LaOS project, inspired on: http://keepachangelog.com
 
 ## Unreleased
+### Changed
+- Migrated from the discontinued mbed 2 library to Mbed CE (CMake/Ninja, pyOCD flashing)
+  with the RTOS, netsocket Ethernet and the Mbed SD/FAT stack. The old build system
+  (mk.sh, gcc4mbed, mbed.patch, vendored SDFileSystem) is gone.
+- config.txt is read from the SD card instead of the semihosted /local drive.
+  The firmware no longer stops when no debugger is attached.
+- The Ethernet MAC address is derived from the LPC1768 serial number.
+- The step interrupt runs from TIMER2 instead of mbed::Ticker (about 6 us per step).
+- Waiting for the motion queue sleeps instead of busy-waiting.
+- Firmware update from the SD card flashes the new image itself (IAP) instead of
+  using the mbed USB drive.
+### Added
+- Headless mode: a config.txt received with TFTP is saved and the board restarts.
+- Without a display the serial console acts as display and keypad.
+- Step interrupt and heap statistics in the console log.
+### Fixed
+- TFTP read of files larger than one block, TFTP write of the last block.
+- cleandir() no longer deletes config.txt; config.txt is not listed as a job.
+- Heap exhaustion after the first job, menu text leaking memory.
+- Rebooting forever when sys.nodisplay is 0 and no display is connected.
+- iotest ported to Mbed CE (target iotest).
 
 ## 2015-04-20 (no binary release)
 - added optional wait_us() in stepper.cpp to support slower

@@ -1,62 +1,93 @@
-Embedded software (firmware) for the laser system and components, including configuration files.
+# LaOS laser controller firmware
 
-## Build setup, using MBED library sources 
-(No GCC4MBED required)
-### Get your compiler 
-Download from: `https://launchpad.net/gcc-arm-embedded` 
-(or use the one that comes with your distribution: apt-get install gcc-arm-none-eabi ). On Ubuntu 14.04 64 bit, you need to install libc6:i386.
-### Download LaosLaser source:
+Embedded software for the LaOS laser cutter controller (LAOS board, mbed LPC1768),
+built on [Mbed CE](https://github.com/mbed-ce/mbed-os) with CMake and Ninja.
+Configuration files for several machines are in `config/`.
+
+## What it does
+
+- Reads `config.txt` from the SD card and drives the X/Y/Z axes (grbl based planner,
+  step pulses from a hardware timer), laser PWM, exhaust and the home/cover sensors.
+- Receives job files (`*.lgc`) over Ethernet with TFTP (port from `net.port`), stores them
+  on the SD card and runs them.
+- Shows a menu on the 2x16 I2C display. Without a display, set `sys.nodisplay 1` (job files are
+  then run as soon as they arrive) or `sys.nodisplay 0` to use the menu on the serial console.
+- Updates itself from the SD card or over TFTP (see below).
+
+## Build
+
+Requirements: `gcc-arm-none-eabi` (tested with 14.2), `cmake` (3.19 or newer), `ninja`,
+`python3` with `venv`, `git`. The Python tools (pyOCD etc.) are installed automatically into
+`mbed-os/venv` on the first configure.
+
 ```
 git clone --recursive https://github.com/LaosLaser/Firmware.git
-```
-### Patch mbed libraries:
-```
-cd Firmware/mbed/
-patch -p1 < ../laser/mbed.patch
-```
-### Set your GCC path 
-Set the path to the gcc compiler in a `workspace_tools/private_settings.py` file. Make sure you end with the bin folder. 
-For example using:
-```
-echo 'GCC_ARM_PATH = "home/usr/gcc-arm-none-eabi-4_8-2014q1/bin/"' > workspace_tools/private_settings.py
-```
-### Build MBED libraries:
-```
-python workspace_tools/build.py -m LPC1768 -t GCC_ARM -r -e -u -c
-```
-You might need to install the python-colorama package for this to work.
-### Link LaOSlaser as an mbed example project
-```
-cd libraries/tests/net/protocols/
-ln -s  ../../../../../laser .
-cd ../../../..
-```
-### Build LaosLaser:
-```
-python workspace_tools/make.py -m LPC1768 -t GCC_ARM -n laser
-```
-### Link IOtest as an mbed exmaple project
-```
-cd libraries/tests/net/protocols/
-ln -s ../../../../../iotest_board/ iotest
-cd ../../../..
+cd Firmware
+cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Develop
+ninja -C build laser iotest
 ```
 
-### Build IOtest:
+Results: `build/laser.bin` (controller firmware) and `build/iotest.bin` (board I/O test, see
+`iotest_board/main.cpp` for the keys). The firmware must stay below 256 KB (the upper half of the
+flash is used to stage updates), the build prints the usage.
+
+## Flash
+
+Through the on-board CMSIS-DAP interface chip, with pyOCD:
+
 ```
-python workspace_tools/make.py -m LPC1768 -t GCC_ARM -n iotest
+ninja -C build flash-laser
 ```
 
-### Attach debugger for step-by-step debugging
+Linux needs the udev rule once: `sudo cp tools/99-mbed-cmsis-dap.rules /etc/udev/rules.d/ &&
+sudo udevadm control --reload && sudo udevadm trigger`.
+
+`-DUPLOAD_METHOD=MBED` instead copies the file to the mbed USB drive. Note that pyOCD may report
+"Target not detected" after programming (the reset fails); the image is written and starts after a
+power cycle or a reset.
+
+## SD card and configuration
+
+Format the card FAT32. Copy one of the files from `config/` to the card as `config.txt` and adjust it.
+Without the card the firmware reboots ("SD NOT READY"). Names with spaces are not supported.
+
+`config.txt` can also be replaced over the network while the board runs headless
+(`sys.nodisplay 1`): sending it with TFTP saves it and restarts the board.
+At startup all files on the card are deleted except `config.txt` when `sys.cleandir` is 1.
+
+## Send jobs and configuration with TFTP
+
 ```
-arm-none-eabi-gdb build/test/LPC1768/GCC_ARM/laser/laser.elf --eval-command \
+tftp <ip> -c put job.lgc job.lgc
+tftp <ip> -c get config.txt
+```
+
+The IP address comes from DHCP or the config file. The MAC address is derived from the chip serial
+number (prefix `00:02:F7`), so each board keeps its own, stable address.
+
+## Firmware update
+
+Either copy a new `laser.bin` to the SD card (any name ending in `.bin`) and restart, or send it
+with TFTP in menu mode. The file is checked (vector table checksum), staged in the upper flash half
+and copied into place by a routine running from RAM. An invalid file is deleted and ignored.
+
+## Serial console and menu simulation
+
+The USB serial port (115200 baud, e.g. `picocom -b 115200 /dev/ttyACM0`) shows the log. If no display
+answers on I2C and `sys.nodisplay` is 0, the console acts as the display and keypad: type
+`8`/`2` (up/down), `4`/`6` (left/right), `5` (OK), `7` (cancel), `1` (origin), `9`/`3` (Z up/down).
+
+## Debugging
+
+```
+arm-none-eabi-gdb build/laser.elf --eval-command \
     'target remote | openocd -c "gdb_port pipe" --file /usr/share/openocd/scripts/interface/cmsis-dap.cfg --file /usr/share/openocd/scripts/target/lpc1768.cfg -cinit -chalt'
 ```
-This starts gdb and lets gdb start openocd to connect to the board. It
-seems you can only attach after startup. Normally, you can also use `-c
-'reset halt'` to reset the board and start debugging from the start, but
-since the startup procedure uses "semihost" calls to read config.txt
-from the flash, this generates dozens of `SIGTRAP` interrupts, making
-debugging effectively useless.
 
-### Read http://mbed.org/handbook/mbed-tools for more info
+Semihosting is disabled (the configuration is read from the SD card), so `reset halt` works.
+At the end of a job in headless mode, memory and step interrupt statistics are printed.
+
+## Releases
+
+Old binaries built with mbed 2 are kept in `releases/` and are not compatible with the
+SD card based configuration. See `CHANGELOG`.
