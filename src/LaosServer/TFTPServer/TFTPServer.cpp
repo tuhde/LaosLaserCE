@@ -25,26 +25,39 @@
 // create a new tftp server, with file directory dir and
 // listening on port
 
-TFTPServer::TFTPServer(int myport) {
+TFTPServer::TFTPServer(NetworkInterface *network, int myport) {
+    net = network;
     port = myport;
     connect_cnt = 0;
+    fp = NULL;
+    strcpy(remote_ip, "");
+    strcpy(filename, "");
+    ListenSock = NULL;
+    SendSock = NULL;
     printf("TFTPServer(): port=%d\n", myport);
+    openSockets();
+    filecnt = 0;
+}
+
+// open the listening socket (port) and the socket used for replies (2048)
+void TFTPServer::openSockets() {
     ListenSock = new UDPSocket();
     SendSock = new UDPSocket();
     state = listen;
-    if (ListenSock->bind(port))
+    if (ListenSock->open(net) || ListenSock->bind(port))
         state = tftperror;
-    if (SendSock->bind(2048))
+    if (SendSock->open(net) || SendSock->bind(2048))
         state = tftperror;
-    ListenSock->set_blocking(false, 1);
-    SendSock->set_blocking(false, 1);
-    filecnt = 0;
+    ListenSock->set_blocking(false);
+    SendSock->set_blocking(false);
 }
 
 // destroy this instance of the tftp server
 TFTPServer::~TFTPServer() {
     ListenSock->close();
     delete(ListenSock);
+    SendSock->close();
+    delete(SendSock);
     strcpy(remote_ip,"");
     state = deleted;
 }
@@ -55,13 +68,7 @@ void TFTPServer::reset() {
     SendSock->close();
     delete(SendSock);
     strcpy(remote_ip,"");
-    ListenSock = new UDPSocket();
-    SendSock = new UDPSocket();
-    state = listen;
-    if (ListenSock->bind(port))
-        state = tftperror;
-    ListenSock->set_blocking(false, 1);
-    SendSock->set_blocking(false, 1);
+    openSockets();
     strcpy(filename, "");
     filecnt = 0;
 }
@@ -95,8 +102,7 @@ int TFTPServer::fileCnt() {
 // create a new connection reading a file from server
 void TFTPServer::ConnectRead(char* buff) {
     extern LaosFileSystem sd;
-    remote_ip = client.get_address();
-    remote_port = client.get_port();
+    setRemote();
     Ack(0);
     blockcnt = 0;
     dupcnt = 0;
@@ -129,8 +135,7 @@ void TFTPServer::ConnectRead(char* buff) {
 void TFTPServer::ConnectWrite(char* buff) {
     extern LaosFileSystem sd;
     // printf("ConnectWrite()\n");
-    remote_ip = client.get_address();
-    remote_port = client.get_port();
+    setRemote();
     Ack(0);
     blockcnt = 0;
     dupcnt = 0;
@@ -178,16 +183,22 @@ void TFTPServer::getBlock() {
 
 // send DATA block to the client
 void TFTPServer::sendBlock() {
-    SendSock->sendTo(client, sendbuff, blocksize);
+    SendSock->sendto(client, sendbuff, blocksize);
 }
 
 
+// remember the peer of the last received packet as the connected remote machine
+void TFTPServer::setRemote() {
+    const char *ip = client.get_ip_address();
+    strncpy(remote_ip, ip ? ip : "", sizeof(remote_ip) - 1);
+    remote_ip[sizeof(remote_ip) - 1] = 0;
+    remote_port = client.get_port();
+}
+
 // compare host IP and Port with connected remote machine
 int TFTPServer::cmpHost() {
-    char ip[17];
-    strcpy(ip, client.get_address());
-    int port = client.get_port();
-    return ((strcmp(ip, remote_ip) == 0) && (port == remote_port));
+    const char *ip = client.get_ip_address();
+    return ((strcmp(ip ? ip : "", remote_ip) == 0) && (client.get_port() == remote_port));
 }
 
 
@@ -201,7 +212,7 @@ void TFTPServer::Ack(int val) {
     ack[2] = val >> 8;
     ack[3] = val & 255;
    // printf("Ack() %d.%d.%d.%d:%d\n", (int)client.get_address()[0], (int)client.get_address()[1], (int)client.get_address()[2], (int)client.get_address()[3], (int)client.get_port() );
-    SendSock->sendTo(client, ack, 4);
+    SendSock->sendto(client, ack, 4);
 }
 
 // send ERR message to named client
@@ -217,7 +228,7 @@ void TFTPServer::Err(const std::string& msg) {
     err[3] = 0x00;
     int len = strlen(err);
     err[len-1] = 0x00;
-    SendSock->sendTo(client, err, len);
+    SendSock->sendto(client, err, len);
     #ifdef TFTP_DEBUG
         char debugmsg[256];
         sprintf(debugmsg, "Error: %s", message);
@@ -251,11 +262,12 @@ void TFTPServer::poll() {
         return;
     }
     char buff[592];
-    int len = ListenSock->receiveFrom(client, buff, sizeof(buff));
-    if (len == 0) {
-		len = SendSock->receiveFrom(client, buff, sizeof(buff));
+    int len = ListenSock->recvfrom(&client, buff, sizeof(buff));
+    if (len <= 0) {     // nothing received (NSAPI_ERROR_WOULD_BLOCK) or error
+		len = SendSock->recvfrom(&client, buff, sizeof(buff));
     }
-    if (len == 0) {
+    if (len <= 0) {
+        ThisThread::sleep_for(1ms);     // let the network stack run
 		return;
     }
 

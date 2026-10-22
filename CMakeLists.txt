@@ -24,7 +24,7 @@ add_executable(hello hello/main.cpp)
 target_link_libraries(hello PRIVATE mbed-os)
 mbed_set_post_build(hello)
 
-# Motion/IO/display/menu/SD. Ethernet/TFTP follow in a later step.
+# LaOS controller firmware
 find_package(Git QUIET)
 set(GIT_HASH "")
 if(GIT_FOUND)
@@ -34,7 +34,7 @@ if(GIT_FOUND)
 endif()
 
 add_executable(laser
-    src/main_bringup.cpp
+    src/main.cpp
     src/global.cpp
     src/ConfigFile/ConfigFile.cpp
     src/LaosMotion/pins.cpp
@@ -49,6 +49,8 @@ add_executable(laser
     src/LaosDisplay/MODI2C_IRQ.cpp
     src/LaosFile/laosfilesystem.cpp
     src/LaosFile/firmware_update.cpp
+    src/LaosServer/EthConfig.cpp
+    src/LaosServer/TFTPServer/TFTPServer.cpp
     src/LaosMenu/LaosMenu.cpp
 )
 target_include_directories(laser PRIVATE
@@ -61,9 +63,11 @@ target_include_directories(laser PRIVATE
     src/LaosDisplay
     src/LaosFile
     src/LaosMenu
+    src/LaosServer
+    src/LaosServer/TFTPServer
 )
 target_compile_definitions(laser PRIVATE __GIT_HASH="${GIT_HASH}" LAOS_HAVE_SD)
-target_link_libraries(laser PRIVATE mbed-os mbed-storage-sd mbed-storage-fat)
+target_link_libraries(laser PRIVATE mbed-os mbed-storage-sd mbed-storage-fat mbed-netsocket)
 mbed_set_post_build(laser)
 
 # Ticker rate/jitter measurement for the stepper timer (risk check)

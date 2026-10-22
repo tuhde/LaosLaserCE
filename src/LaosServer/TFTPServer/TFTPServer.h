@@ -44,7 +44,9 @@
 #include <ctype.h>
 #include "mbed.h"
 #include "laosfilesystem.h"
-#include "EthernetInterface.h"
+#include "netsocket/NetworkInterface.h"
+#include "netsocket/UDPSocket.h"
+#include "netsocket/SocketAddress.h"
 #include "global.h"
 
 #define TFTP_PORT 69
@@ -57,7 +59,7 @@ class TFTPServer {
 public:
     // create a new tftp server, with file directory dir and 
     // listening on port
-    TFTPServer(int myport = TFTP_PORT);
+    TFTPServer(NetworkInterface *net, int myport = TFTP_PORT);
     // destroy this instance of the tftp server
     void reset();
     // reset socket
@@ -85,10 +87,9 @@ private:
     // send DATA block to the client
     void sendBlock();
     // handle special files
-    // anything called *.bin is written to /local/FIRMWARE.BIN
-    // anything called config.txt is written to /local/config.txt
-    // even if workdir is not /local
     int cmpHost();
+    // remember the sender of the last packet as the remote host
+    void setRemote();
     // send ACK to remote
     void Ack(int val);
     // send ERR message to named client
@@ -99,11 +100,14 @@ private:
     void cleanUp();
     // event driven routines to handle incoming packets
     // void onListenUDPSocketEvent(UDPSocketEvent e);
+    // (re)create and bind the sockets, sets state
+    void openSockets();
+    NetworkInterface *net;
     int port; // The TFTP port
     UDPSocket* ListenSock;      // main listening socket (dflt: UDP port 69)
     UDPSocket* SendSock;		// local socket to send UDP packets
     TFTPServerState state;      // current TFTP server state
-    char* remote_ip;         // connected remote Host IP
+    char remote_ip[40];         // connected remote Host IP
     int remote_port;            // connected remote Host Port
     int blockcnt, dupcnt;       // block counter, and DUP counter
     FILE* fp;                   // current file to read or write
@@ -113,7 +117,7 @@ private:
     //Ticker TFTPServerTimer;     // timeout timer
     int filecnt;                // received file counter
     int connect_cnt;			// Connection counter
-    Endpoint client;
+    SocketAddress client;       // peer of the most recent packet
 };
 
 #endif

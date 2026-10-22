@@ -25,8 +25,11 @@
 #ifndef _ETHCONFIG_H_
 #define _ETHCONFIG_H_
 #include "global.h"
-#include "EthernetInterface.h"
+#include "mbed.h"
+#include "netsocket/EthernetInterface.h"
 
+// Bring up the ethernet interface as configured (DHCP or fixed IP). Does not wait
+// forever for a cable: returns after a timeout, the stack keeps trying in the background.
 EthernetInterface * EthConfig();
 bool EthSpeed(void);
 bool EthLink(void);

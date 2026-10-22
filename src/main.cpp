@@ -58,7 +58,6 @@
 EthernetInterface *eth; // Ethernet, tcp/ip
 
 // Filesystems
-LocalFileSystem local("local");   //File System
 LaosFileSystem sd(p11, p12, p13, p14, "sd");
 
 // Laos objects
@@ -95,7 +94,9 @@ int main()
 
  printf("TEST SD...\n"); 
   char testfile[] = "test.txt";
-  FILE *fp = sd.openfile(testfile, "wb");
+  FILE *fp = NULL;
+  if (sd.mount() == 0)
+    fp = sd.openfile(testfile, "wb");
   if ( fp == NULL )
   {
     mnu->SetScreen("SD NOT READY!"); 
@@ -128,7 +129,7 @@ int main()
   eth_speed=1;
       
   printf("SERVER...\n");
-  srv = new TFTPServer(cfg->port);
+  srv = new TFTPServer(eth, cfg->port);
   mnu->SetScreen("SERVER OK...."); 
   ThisThread::sleep_for(500ms);
   mnu->SetScreen(10); // IP

@@ -55,26 +55,50 @@ bool EthLink(void)
 EthernetInterface * EthConfig()
  {
     extern GlobalConfig *cfg;
-    EthernetInterface *eth;
-    eth = new EthernetInterface();
+    EthernetInterface *eth = new EthernetInterface();
+    eth->set_blocking(false);
     if ( cfg->dhcp )
     {
         printf("DHCP...\n\r");
-        eth->init();
+        eth->set_dhcp(true);
     }
     else
     {
         printf("FIXED IP...\n\r");
         printf("IP: %s\n\r", cfg->ip);
-        eth->init(cfg->ip, cfg->nm, cfg->gw);
+        SocketAddress ip, nm, gw, dns;
+        ip.set_ip_address(cfg->ip);
+        nm.set_ip_address(cfg->nm);
+        gw.set_ip_address(cfg->gw);
+        dns.set_ip_address(cfg->dns);
+        eth->set_dhcp(false);
+        eth->set_network(ip, nm, gw);
+        eth->add_dns_server(dns, NULL);
     }
     eth->connect();
-    // tell global about current IP
-    strcpy(cfg->ip, eth->getIPAddress());
-    strcpy(cfg->nm, eth->getNetworkMask());
-    strcpy(cfg->gw, eth->getGateway());
-    
-    printf("IP Address is: %c[8;34;2m%s%c[0m  \n\r", ESC, eth->getIPAddress(), ESC);
+
+    // wait for link and address (DHCP can take a while)
+    Timer t;
+    t.start();
+    while (eth->get_connection_status() != NSAPI_STATUS_GLOBAL_UP && t.elapsed_time() < 15s)
+        ThisThread::sleep_for(100ms);
+
+    SocketAddress addr;
+    if (eth->get_ip_address(&addr) == NSAPI_ERROR_OK && addr.get_ip_address()) {
+        // tell global about current IP
+        strncpy(cfg->ip, addr.get_ip_address(), sizeof(cfg->ip) - 1);
+        cfg->ip[sizeof(cfg->ip) - 1] = 0;
+        if (eth->get_netmask(&addr) == NSAPI_ERROR_OK && addr.get_ip_address()) {
+            strncpy(cfg->nm, addr.get_ip_address(), sizeof(cfg->nm) - 1);
+            cfg->nm[sizeof(cfg->nm) - 1] = 0;
+        }
+        if (eth->get_gateway(&addr) == NSAPI_ERROR_OK && addr.get_ip_address()) {
+            strncpy(cfg->gw, addr.get_ip_address(), sizeof(cfg->gw) - 1);
+            cfg->gw[sizeof(cfg->gw) - 1] = 0;
+        }
+        printf("IP Address is: %c[8;34;2m%s%c[0m  \n\r", ESC, cfg->ip, ESC);
+    } else {
+        printf("No IP address yet (no cable / no DHCP answer)\n\r");
+    }
     return eth;
 }
-
