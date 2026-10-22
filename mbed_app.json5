@@ -4,6 +4,9 @@
             "platform.stdio-baud-rate": 115200,
             "platform.stdio-buffered-serial": 1,
             "target.semihosting-enabled": true
+        },
+        "LPC1768": {
+            "target.components_add": ["SD"]
         }
     }
 }

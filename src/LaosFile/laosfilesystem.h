@@ -23,8 +23,9 @@
 #ifndef _LAOSFILESYSTEM_
 #define _LAOSFILESYSTEM_
 
-#include "SDFileSystem.h"
+#include "mbed.h"
 #include "FATFileSystem.h"
+#include "SDBlockDevice.h"
 #include <string>
 #include <ctype.h>
 
@@ -32,7 +33,7 @@
 #define MAXFILESIZE 21
 #define SHORTFILESIZE 13
 
-class LaosFileSystem : public SDFileSystem {
+class LaosFileSystem : public FATFileSystem {
     public:
         LaosFileSystem(PinName mosi, PinName miso, PinName sclk, PinName cs, 
                 const char* name);        // Create the filesystem on SD
@@ -43,8 +44,11 @@ class LaosFileSystem : public SDFileSystem {
         char pathname[MAXFILESIZE+2];
         void cleanlist();
         void shorten(char* name, int max);
+        int mount();                              // mount the SD card, 0 on success
+        int reformat();                           // format the SD card (erases all data!)
         
     private:
+        SDBlockDevice bd;
         int islegalname(char* name);
         int isshortname(char* name);
         void removespaces(char* name);

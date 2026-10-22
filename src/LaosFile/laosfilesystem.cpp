@@ -24,12 +24,20 @@
 #include "laosfilesystem.h"
 
 LaosFileSystem::LaosFileSystem(PinName mosi, PinName miso, PinName sclk, PinName cs, const char* name)
-        : SDFileSystem(mosi, miso, sclk, cs, name) {
+        : FATFileSystem(name), bd(mosi, miso, sclk, cs) {
     sprintf(tablename, "/%s/%s", name, _LAOSFILE_TRANSTABLE);
     sprintf(pathname, "/%s/", name);
 }
 
 LaosFileSystem::~LaosFileSystem() {
+}
+
+int LaosFileSystem::mount() {
+    return FATFileSystem::mount(&bd);
+}
+
+int LaosFileSystem::reformat() {
+    return FATFileSystem::reformat(&bd);
 }
 
 FILE* LaosFileSystem::openfile(char *name, const std::string& iom) {

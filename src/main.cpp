@@ -52,7 +52,6 @@
 #include "TFTPServer.h"
 #include "LaosMenu.h"
 #include "LaosMotion.h"
-#include "SDFileSystem.h"
 #include "laosfilesystem.h"
 
 // Status and communication
@@ -100,7 +99,7 @@ int main()
   if ( fp == NULL )
   {
     mnu->SetScreen("SD NOT READY!"); 
-    wait(2.0);
+    ThisThread::sleep_for(2s);
     NVIC_SystemReset();
   }
   else
@@ -131,9 +130,9 @@ int main()
   printf("SERVER...\n");
   srv = new TFTPServer(cfg->port);
   mnu->SetScreen("SERVER OK...."); 
-  wait(0.5);
+  ThisThread::sleep_for(500ms);
   mnu->SetScreen(10); // IP
-  wait(1.0);
+  ThisThread::sleep_for(1s);
   
   printf("RUN...\n");
   
@@ -142,7 +141,7 @@ int main()
   if ( cfg->autohome )
   {
     printf("WAIT FOR COVER...\n");
-    wait(1);
+    ThisThread::sleep_for(1s);
   
   
   // Start homing

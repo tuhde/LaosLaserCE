@@ -655,7 +655,7 @@ void LaosMenu::Handle() {
                             double p = (double)(cfg->pwmmin/100.0 + ((m_LaserTestPower/100.0)*((cfg->pwmmax - cfg->pwmmin)/100.0)));
                             pwm = p;
                             *laser = LASERON;
-                            wait_ms(m_LaserTestTime);
+                            ThisThread::sleep_for(std::chrono::milliseconds(m_LaserTestTime));
                             *laser = LASEROFF;
                             pwm = cfg->pwmmax / 100.0;  // set pwm to max;
                         }
