@@ -306,16 +306,21 @@ void showfile() {
     }
 }
 
+// delete all files from the SD card, except for config.txt
 void cleandir() {
     DIR *d;
     struct dirent *p;
     d = opendir("/sd");
     if(d != NULL) {
         while((p = readdir(d)) != NULL) {
+            // the config file lives on the same card and must survive the cleanup
+            if (strcasecmp(p->d_name, "config.txt") == 0)
+                continue;
             char fullname[MAXFILESIZE+SHORTFILESIZE+2];
-            sprintf(fullname, "/sd/%s", p->d_name);
+            snprintf(fullname, sizeof(fullname), "/sd/%s", p->d_name);
             remove(fullname);
         }
+        closedir(d);
     } else {
         error("Could not open directory!\n\r");
     }
