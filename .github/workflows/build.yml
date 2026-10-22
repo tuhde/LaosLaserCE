@@ -7,12 +7,16 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Install toolchain
         run: |
+          # the azure.archive.ubuntu.com mirror of the runner images is unreliable
+          sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null || true
+          echo 'Acquire::Retries "5"; Acquire::http::Timeout "20"; Acquire::https::Timeout "20";' | sudo tee /etc/apt/apt.conf.d/99retries
           sudo apt-get update
           sudo apt-get install -y gcc-arm-none-eabi cmake ninja-build python3-venv
       - name: Configure
