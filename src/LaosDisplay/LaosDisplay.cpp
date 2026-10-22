@@ -76,8 +76,10 @@ void LaosDisplay::write(char *s)
 {  
   if ( sim ) 
   {
-    while (*s)
-      putc(*s++, stdout);
+    for (; *s; s++) {
+      if ((unsigned char)*s != _I2C_HOME && (unsigned char)*s != _I2C_CLS)   // display control codes
+        putc(*s, stdout);
+    }
     fflush(stdout);
     return;
   } else {
@@ -207,6 +209,15 @@ void LaosDisplay::ShowScreen(const char *l, int *arg, char *s)
     l++;
   }
   *p=0;
+  if (sim) {
+    // the menu redraws all the time (cheap on the I2C display): only print changes on the console
+    static char last[sizeof(str)];
+    if (strcmp(str, last) == 0)
+      return;
+    strcpy(last, str);
+    printf("%s\r\n", str + 1);     // skip the home character
+    return;
+  }
   write(str);
 }
 
