@@ -26,8 +26,11 @@
 ConfigFile::ConfigFile(char *file) 
 {
   printf("ConfigFile:ConfigFile (%s)\n\r", file);
+  fp = NULL;
+#ifdef LAOS_HAVE_SD
   extern LaosFileSystem sd;
-  fp =sd.openfile(file, "r");
+  fp = sd.openfile(file, "r");
+#endif
   if (fp==NULL) {
     char tmpname[32];
     sprintf(tmpname, "/local/%s", file);

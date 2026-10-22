@@ -8,11 +8,11 @@
 void MODI2C::runUserIRQ(I2CData Data) {
      
     if (IRQOp==IRQ_I2C_BOTH)        //Always call if both
-        callback.call();
+        if (callback) callback();
     if ((IRQOp==IRQ_I2C_READ)&&(Data.address&0x01)) //Call if read and byte was read
-        callback.call();
+        if (callback) callback();
     if ((IRQOp==IRQ_I2C_WRITE)&&(!(Data.address&0x01))) //Call if write and byte was written
-        callback.call();
+        if (callback) callback();
 }
 
 void MODI2C::IRQ1Handler( void ) {

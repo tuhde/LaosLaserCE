@@ -507,19 +507,19 @@ void LaosMotion::home(int x, int y, int z)
     printf("Homing %d with speed %d\n", z, cfg->zhomespeed);
     while ((zmin ^ cfg->zpol) && (zmax ^ cfg->zpol)) {
         zstep = 0;
-        wait(cfg->zhomespeed/1E6);
+        wait_us(cfg->zhomespeed);
         zstep = 1;
-        wait(cfg->zhomespeed/1E6);
+        wait_us(cfg->zhomespeed);
     }
   }
   printf("Home XY...\n\r");
   while ( 1 )
   {
     xstep = ystep = 0;
-    wait(cfg->homespeed/1E6);
+    wait_us(cfg->homespeed);
     xstep = xhome ^ cfg->xpol;
     ystep = yhome ^ cfg->ypol;
-    wait(cfg->homespeed/1E6);
+    wait_us(cfg->homespeed);
 
     led2 = !xhome;
     led3 = !yhome;

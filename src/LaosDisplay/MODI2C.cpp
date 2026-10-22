@@ -163,17 +163,17 @@ void MODI2C::writePinState( void ) {
 
 void MODI2C::attach( void (*function)(void), int operation) {
     IRQOp = operation;
-    callback.attach(function);
+    callback = function;
 }
 
 template<typename T>
 void MODI2C::attach(T *object, void (T::*member)(void), int operation) {
     IRQOp = operation;
-    callback.attach(object, member);
+    callback = mbed::callback(object, member);
 }
 
 void MODI2C::detach( void ) {
-    callback.attach(NULL);
+    callback = nullptr;
 }
 
 void MODI2C::_start(LPC_I2C_TypeDef *I2CMODULE) {

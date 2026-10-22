@@ -214,7 +214,7 @@ static void st_go_idle()
   *laser = LASEROFF;
   pwm = cfg->pwmmax / 100.0;  // set pwm to max;
   laser_enable = !cfg->lenable; // disable the laser
-  exhaust_timer.attach(&exhaust_off, cfg->exhaust_offdelay);
+  exhaust_timer.attach(&exhaust_off, std::chrono::seconds(cfg->exhaust_offdelay));
 	// when job completes turn off air assist/exhaust after
 //  printf("idle()..\n");
 }
@@ -288,7 +288,7 @@ static inline void set_step_timer (uint32_t cycles)
    if(s_CurrentTimerPeriod != cycles)
    {
      s_CurrentTimerPeriod = cycles;
-     timer.attach_us(&st_interrupt,cycles);
+     timer.attach(&st_interrupt, std::chrono::microseconds(cycles));
    // p = to_double(pwmofs + mul_f( pwmscale, ((power>>6) * c_min) / ((10000>>6)*cycles) ) );
    // p = ( to_double(c_min) * current_block->power) / ( 10000.0 * (double)cycles);
   // p = (60E6/nominal_rate) / cycles; // nom_rate is steps/minute,

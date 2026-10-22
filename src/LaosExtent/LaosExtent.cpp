@@ -190,7 +190,7 @@ void LaosExtent::ShowBoundaries(LaosMotion *mot) const
 			if(step == 1)
 			{
 				// wait a bit after going to the origin, so the user knows it's the origin:
-			    wait(1.0);
+			    ThisThread::sleep_for(1s);
 			}
 			mot->moveToRelativeToOrigin(x, y, z);
 		}

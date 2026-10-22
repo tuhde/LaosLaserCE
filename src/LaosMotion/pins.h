@@ -4,7 +4,6 @@
 #define _PINS_H_
 
 // other definitions
-extern "C" void mbed_reset();
 
 // status leds
 extern DigitalOut led1,led2,led3,led4;

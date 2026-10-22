@@ -25,7 +25,6 @@
 #ifndef _LAOS_DISPLAY_H_
 #define _LAOS_DISPLAY_H_
 
-extern "C" void mbed_reset();
     /** LaosDisplay
       * Connect to LCD terminal or PC
       * Example:

@@ -468,7 +468,7 @@ void LaosMenu::Handle() {
                 break;
 
             case REBOOT: // RESET MACHINE
-                mbed_reset();
+                NVIC_SystemReset();
                 break;
 
 /*

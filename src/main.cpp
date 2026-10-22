@@ -79,7 +79,6 @@ void main_menu();
 // for debugging:
 extern void plan_get_current_position_xyz(float *x, float *y, float *z);
 extern PwmOut pwm;
-extern "C" void mbed_reset();
 
 /**
 *** Main function
@@ -102,7 +101,7 @@ int main()
   {
     mnu->SetScreen("SD NOT READY!"); 
     wait(2.0);
-    mbed_reset();
+    NVIC_SystemReset();
   }
   else
   {
@@ -113,7 +112,7 @@ int main()
   
   // See if there's a .bin file on the SD
   // if so, put it on the MBED and reboot
-  if (SDcheckFirmware()) mbed_reset();
+  if (SDcheckFirmware()) NVIC_SystemReset();
   
   mnu->SetScreen(VERSION_STRING);
   printf("START...\n");

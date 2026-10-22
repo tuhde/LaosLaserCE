@@ -204,7 +204,7 @@ private:
     //Settings:
     int duty;
     
-    FunctionPointer callback;
+    mbed::Callback<void()> callback;
     int IRQOp;   
     void runUserIRQ( I2CData Data );
 

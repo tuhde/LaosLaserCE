@@ -27,10 +27,18 @@
 #include "mbed.h"
 
 // Serial
-#if !MRI_ENABLE
-Serial serial(USBTX, USBRX);
-#define _SERIAL_BAUD 115200
-#endif
+// In simulation mode the USB serial console (stdin/stdout) acts as the display
+static FileHandle *console = mbed::mbed_file_handle(STDIN_FILENO);
+
+static int console_getc()
+{
+  char c;
+  if (console->poll(POLLIN) & POLLIN) {
+    if (console->read(&c, 1) == 1)
+      return c;
+  }
+  return 0;
+}
 
 // I2C
 MODI2C i2c(p9, p10);        // sda, scl
@@ -44,15 +52,11 @@ LaosDisplay::LaosDisplay()
 {
   int i2cBaud = _I2C_BAUD;
   i2c.frequency(i2cBaud );
-#if !MRI_ENABLE
-  int serialBaud = _SERIAL_BAUD;
-  serial.baud(serialBaud);
-#endif
 
   char key;
   // test I2C, if we cannot read, display is not attached, enable simulation
   // wait 1 second to make sure that I2C has time to power on!
-  wait(3);
+  ThisThread::sleep_for(3s);
   sim = i2c.read(_I2C_ADDRESS ,&key, 1) != 0; 
   if (sim) {
     printf("LaosDisplay()\n");
@@ -64,7 +68,7 @@ LaosDisplay::LaosDisplay()
 void LaosDisplay::testI2C() {
     char key;
     sim = i2c.read(_I2C_ADDRESS ,&key, 1) != 0;
-    if (sim) mbed_reset();
+    if (sim) NVIC_SystemReset();
 }
 
 // Write string
@@ -73,11 +77,8 @@ void LaosDisplay::write(char *s)
   if ( sim ) 
   {
     while (*s)
-#if !MRI_ENABLE
-      serial.putc(*s++);
-#else
       putc(*s++, stdout);
-#endif
+    fflush(stdout);
     return;
   } else {
     while (*s) {
@@ -102,12 +103,7 @@ int LaosDisplay::read()
   char key = 0;
   if (sim)
   {
-#if !MRI_ENABLE
-    if ( serial.readable() )
-      key =  serial.getc();
-    else
-#endif
-      key = 0;
+    key = console_getc();
   }
   else
   {
@@ -126,12 +122,7 @@ int LaosDisplay::read_nb()
   static int status = 1;   // for first start
   if (sim)
   {
-#if !MRI_ENABLE
-    if ( serial.readable() )
-      key =  serial.getc();
-    else
-#endif
-      key = 0;
+    key = console_getc();
   }
   else
   {

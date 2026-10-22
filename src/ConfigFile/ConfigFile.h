@@ -42,7 +42,9 @@
 #define _CONFIG_FILE_H_
 
 #include "global.h"
+#ifdef LAOS_HAVE_SD
 #include "laosfilesystem.h"
+#endif
 
     /** Simple config file object
       * Only supports reading config files. Tries to limit memory usage.

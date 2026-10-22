@@ -23,3 +23,45 @@ add_subdirectory(${MBED_PATH})
 add_executable(hello hello/main.cpp)
 target_link_libraries(hello PRIVATE mbed-os)
 mbed_set_post_build(hello)
+
+# Step 2: motion/IO/display port. Menu, SD, Ethernet/TFTP follow in later steps.
+find_package(Git QUIET)
+set(GIT_HASH "")
+if(GIT_FOUND)
+    execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short=6 HEAD
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_HASH OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+endif()
+
+add_executable(laser
+    src/main_bringup.cpp
+    src/global.cpp
+    src/ConfigFile/ConfigFile.cpp
+    src/LaosMotion/pins.cpp
+    src/LaosMotion/LaosMotion.cpp
+    src/LaosMotion/grbl/planner.cpp
+    src/LaosMotion/grbl/stepper.cpp
+    src/LaosMotion/grbl/fixedpt.cpp
+    src/LaosIO/LaosIO.cpp
+    src/LaosExtent/LaosExtent.cpp
+    src/LaosDisplay/LaosDisplay.cpp
+    src/LaosDisplay/MODI2C.cpp
+    src/LaosDisplay/MODI2C_IRQ.cpp
+)
+target_include_directories(laser PRIVATE
+    src
+    src/ConfigFile
+    src/LaosMotion
+    src/LaosMotion/grbl
+    src/LaosIO
+    src/LaosExtent
+    src/LaosDisplay
+)
+target_compile_definitions(laser PRIVATE __GIT_HASH="${GIT_HASH}")
+target_link_libraries(laser PRIVATE mbed-os)
+mbed_set_post_build(laser)
+
+# Ticker rate/jitter measurement for the stepper timer (risk check)
+add_executable(ticktest ticktest/main.cpp)
+target_link_libraries(ticktest PRIVATE mbed-os)
+mbed_set_post_build(ticktest)
