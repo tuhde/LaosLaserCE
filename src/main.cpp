@@ -231,6 +231,13 @@ void main_nodisplay() {
     
        char name[32];
        srv->getFilename(name);
+       if (strcasecmp(name, "config.txt") == 0) {
+         // a new configuration: it is already on the SD card, restart to apply it
+         printf("New config received, restarting...\n\r");
+         mnu->SetScreen("Config saved");
+         ThisThread::sleep_for(500ms);
+         NVIC_SystemReset();
+       }
        printf("Now processing file: '%s'\n\r", name);
        FILE *in = sd.openfile(name, "r");
        if (in == NULL) {

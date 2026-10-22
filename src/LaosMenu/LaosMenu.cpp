@@ -325,8 +325,6 @@ void LaosMenu::Handle() {
                         case K_FDOWN: screen=FOCUS; break;
                         case K_ORIGIN: screen=ORIGIN; break;
                     }
-                    printf("Move: c: %d, numinqueue: %d, xt: %d, yt: %d,  waitempty: %d\n", 
-                        c, numinqueue, xt, yt, m_MoveWaitTillQueueEmpty? 1:0);
                     int maxinqueue=m_MoveWaitTillQueueEmpty? 1:5;
 
                     /* 

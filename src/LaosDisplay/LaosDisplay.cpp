@@ -67,8 +67,11 @@ LaosDisplay::LaosDisplay()
 // Test I2C again when config file is read
 void LaosDisplay::testI2C() {
     char key;
+    bool was_sim = sim;
     sim = i2c.read(_I2C_ADDRESS ,&key, 1) != 0;
-    if (sim) NVIC_SystemReset();
+    // restart when a display has shown up since the first check;
+    // without a display we stay in simulation mode
+    if (was_sim && !sim) NVIC_SystemReset();
 }
 
 // Write string
