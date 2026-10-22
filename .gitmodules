@@ -1,3 +1,0 @@
-[submodule "mbed"]
-	path = mbed
-	url = git://github.com/mbedmicro/mbed.git
