@@ -9,7 +9,6 @@
 #include "LaosMenu.h"
 #include "laosfilesystem.h"
 
-LocalFileSystem local("local");
 LaosFileSystem sd(p11, p12, p13, p14, "sd");
 GlobalConfig *cfg;
 LaosDisplay *dsp;
@@ -19,6 +18,7 @@ LaosMotion *mot;
 static void sd_selftest()
 {
   int err = sd.mount();
+  printf("SD: mount -> %d\r\n", err);
   if (err) {
     printf("SD mount failed (%d), formatting...\r\n", err);
     err = sd.reformat();
@@ -27,7 +27,10 @@ static void sd_selftest()
       return;
     }
   }
-  char name[] = "test file.txt";   // long name, goes through the longname.sys table
+  char name[] = "testfile_long.txt";   // long name, goes through the longname.sys table
+  FILE *raw = fopen("/sd/raw.txt", "wb");
+  printf("SD: raw fopen -> %p (errno %d)\r\n", (void *)raw, errno);
+  if (raw) { fputs("raw\n", raw); fclose(raw); remove("/sd/raw.txt"); }
   FILE *fp = sd.openfile(name, "wb");
   if (!fp) { printf("SD: create failed\r\n"); return; }
   fputs("hello\n", fp);

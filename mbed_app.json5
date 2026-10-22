@@ -3,7 +3,7 @@
         "*": {
             "platform.stdio-baud-rate": 115200,
             "platform.stdio-buffered-serial": 1,
-            "target.semihosting-enabled": true
+            "target.semihosting-enabled": false
         },
         "LPC1768": {
             "target.components_add": ["SD"]

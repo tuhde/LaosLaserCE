@@ -31,11 +31,14 @@ ConfigFile::ConfigFile(char *file)
   extern LaosFileSystem sd;
   fp = sd.openfile(file, "r");
 #endif
+#ifdef LAOS_USE_LOCALFS
+  // semihosted mbed USB drive; hangs the core when no debug host services it
   if (fp==NULL) {
     char tmpname[32];
     sprintf(tmpname, "/local/%s", file);
     fp = fopen(tmpname,"r");
-  } 
+  }
+#endif
 }
 
 // Destroy a config file (closes the file handle)
