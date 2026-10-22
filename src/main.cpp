@@ -52,6 +52,7 @@
 #include "TFTPServer.h"
 #include "LaosMenu.h"
 #include "LaosMotion.h"
+#include "stepper.h"
 #include "laosfilesystem.h"
 
 // Status and communication
@@ -247,6 +248,12 @@ void main_nodisplay() {
        // done
        printf("DONE!...\n");
        print_mem("after job");
+       {
+         uint32_t calls, avg, max;
+         st_get_stats(&calls, &avg, &max);
+         printf("STEP ISR: %lu calls, avg %lu cycles, max %lu cycles\n\r",
+                (unsigned long)calls, (unsigned long)avg, (unsigned long)max);
+       }
 	   while (!mot->ready() );
        mot->moveToAbsolute(cfg->xrest, cfg->yrest, cfg->zrest);
     }

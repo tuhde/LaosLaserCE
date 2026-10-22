@@ -117,6 +117,7 @@ void exhaust_off();
 void st_debug_block(const block_t *block);
 
 void st_debug();
+void st_get_stats(uint32_t *calls, uint32_t *avg_cycles, uint32_t *max_cycles); // step interrupt statistics, cleared on read
 
 
 #endif

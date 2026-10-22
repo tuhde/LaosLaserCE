@@ -41,7 +41,7 @@
 #include "config.h"
 #include "planner.h"
 
-#define TICKS_PER_MICROSECOND (1) // Ticker uses 1usec units
+#define TICKS_PER_MICROSECOND (1) // the step timer runs in 1usec units
 // #define CYCLES_PER_ACCELERATION_TICK ((TICKS_PER_MICROSECOND*1000000)/ACCELERATION_TICKS_PER_SECOND)
 #define STEP_TIMER_FREQ 1000000 // 1 MHz
 
@@ -52,6 +52,7 @@ typedef enum {RAMP_UP, RAMP_MAX, RAMP_DOWN} tRamp;
 static void st_interrupt ();
 static void set_step_timer (uint32_t cycles);
 static void st_go_idle();
+static void step_timer_stop();
 
 // Globals
 volatile unsigned char busy = 0;
@@ -59,7 +60,6 @@ volatile int32_t actpos_x, actpos_y, actpos_z, actpos_e; // actual position
 
 // Locals
 static block_t *current_block;  // A pointer to the block currently being traced
-static Ticker timer; // the periodic timer used to step
 static Timeout exhaust_timer; // air assist/exhaust turn off delay
 static tFixedPt pwmofs; // the offset of the PWM value
 static tFixedPt pwmscale; // the scaling of the PWM value
@@ -203,12 +203,95 @@ void st_wake_up()
   }
 }
 
+// ---- Step timer ------------------------------------------------------------------------------
+// The step interrupt runs from LPC1768 TIMER2 directly. mbed::Ticker (a software layer on top of a
+// compare match of the us_ticker timer) costs about 13 us per tick, which is too slow for step rates
+// above ~50 kHz. TIMER2 counts microseconds and resets on every match of MR0.
+#define STEP_TIMER LPC_TIM2
+#define STEP_TIMER_IRQ TIMER2_IRQn
+#define STEP_TIMER_PCONP (1 << 22)
+
+// optional statistics of the time spent in the step interrupt (CPU cycles)
+#define STEP_STATS 1
+#if STEP_STATS
+static volatile uint32_t stat_calls, stat_cycles_sum, stat_cycles_max;
+#endif
+
+static void step_timer_isr()
+{
+  STEP_TIMER->IR = 1;   // clear the MR0 interrupt flag
+#if STEP_STATS
+  uint32_t t0 = DWT->CYCCNT;
+#endif
+  st_interrupt();
+#if STEP_STATS
+  uint32_t dt = DWT->CYCCNT - t0;
+  stat_calls++;
+  stat_cycles_sum += dt;
+  if (dt > stat_cycles_max) stat_cycles_max = dt;
+#endif
+}
+
+// returns and clears the statistics: number of interrupts, average and maximum cycles
+void st_get_stats(uint32_t *calls, uint32_t *avg_cycles, uint32_t *max_cycles)
+{
+#if STEP_STATS
+  *calls = stat_calls;
+  *avg_cycles = stat_calls ? stat_cycles_sum / stat_calls : 0;
+  *max_cycles = stat_cycles_max;
+  stat_calls = stat_cycles_sum = stat_cycles_max = 0;
+#else
+  *calls = *avg_cycles = *max_cycles = 0;
+#endif
+}
+
+static void step_timer_init()
+{
+  static bool done = false;
+  if (done) return;
+  done = true;
+  LPC_SC->PCONP |= STEP_TIMER_PCONP;
+  LPC_SC->PCLKSEL1 &= ~(3 << 12);                 // TIMER2 clock = CCLK/4
+  STEP_TIMER->TCR = 2;                            // hold in reset
+  STEP_TIMER->PR = SystemCoreClock / 4 / STEP_TIMER_FREQ - 1;
+  STEP_TIMER->MCR = 3;                            // MR0: interrupt and reset the counter
+  NVIC_SetVector(STEP_TIMER_IRQ, (uint32_t)&step_timer_isr);
+  NVIC_SetPriority(STEP_TIMER_IRQ, 0);
+  NVIC_EnableIRQ(STEP_TIMER_IRQ);
+#if STEP_STATS
+  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+  DWT->CYCCNT = 0;
+  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+#endif
+}
+
+// (re)start the periodic step interrupt with an interval of "cycles" microseconds
+static void step_timer_set(uint32_t cycles)
+{
+  step_timer_init();
+  if (cycles < 2) cycles = 2;
+  STEP_TIMER->MR0 = cycles - 1;
+  if (STEP_TIMER->TCR != 1) {                     // not running: start from zero
+    STEP_TIMER->TCR = 2;
+    STEP_TIMER->IR = 1;
+    STEP_TIMER->TCR = 1;
+  } else if (STEP_TIMER->TC > STEP_TIMER->MR0) {  // the new interval has already passed: fire now
+    STEP_TIMER->TC = STEP_TIMER->MR0;
+  }
+}
+
+static void step_timer_stop()
+{
+  STEP_TIMER->TCR = 0;
+  STEP_TIMER->IR = 1;
+}
+
 // When not stepping, go to idle mode. Steppers can be switched off, or set to reduced current
 // (some delay might have to be implemented). Currently no motor switchoff is done.
 static void st_go_idle()
 {
   extern GlobalConfig *cfg;
-  timer.detach();
+  step_timer_stop();
   running = 0;
   clear_all_step_pins();
   *laser = LASEROFF;
@@ -288,7 +371,7 @@ static inline void set_step_timer (uint32_t cycles)
    if(s_CurrentTimerPeriod != cycles)
    {
      s_CurrentTimerPeriod = cycles;
-     timer.attach(&st_interrupt, std::chrono::microseconds(cycles));
+     step_timer_set(cycles);
    // p = to_double(pwmofs + mul_f( pwmscale, ((power>>6) * c_min) / ((10000>>6)*cycles) ) );
    // p = ( to_double(c_min) * current_block->power) / ( 10000.0 * (double)cycles);
   // p = (60E6/nominal_rate) / cycles; // nom_rate is steps/minute,
