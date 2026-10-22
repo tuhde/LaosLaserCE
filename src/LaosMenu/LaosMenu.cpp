@@ -503,7 +503,7 @@ void LaosMenu::Handle() {
                 break;
 */
             case HOMING: // Homing screen
-                while ( !mot->isStart() );
+                while ( !mot->isStart() ) ThisThread::sleep_for(10ms);
                 mot->home(cfg->xhome,cfg->yhome,cfg->zhome);
                 screen=lastscreen;
                 break;
@@ -532,7 +532,7 @@ void LaosMenu::Handle() {
                                 if(cfg->disablecancelcheck == false)
                                 {
                                     if(dsp->read_nb() == K_CANCEL) {
-                                       while (mot->queue());
+                                       mot->waitIdle();
                                        mot->reset();
                                        fseek(runfile, 0, SEEK_END);
                                     }

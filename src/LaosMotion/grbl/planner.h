@@ -128,6 +128,9 @@ void plan_set_feed_rate (tTarget *new_position);
 
 uint8_t plan_queue_full (void);
 
+// sleep until the stepper has retired a block (or 10 ms have passed); for waiting on queue changes
+void plan_wait_for_change (void);
+
 uint8_t plan_queue_empty(void);
 
 uint8_t plan_queue_items(void) ;

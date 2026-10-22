@@ -184,7 +184,7 @@ int main()
   // Start homing
     mnu->SetScreen("WAIT FOR COVER....");
     //if ( cfg->waitforstart ) 
-      while ( !mot->isStart() );
+      while ( !mot->isStart() ) ThisThread::sleep_for(10ms);
     mnu->SetScreen("HOME....");
     printf("HOME...\n");
 
@@ -240,7 +240,7 @@ void main_nodisplay() {
        }
        while (!feof(in))
        { 
-         while (!mot->ready() );
+         mot->waitReady();
          mot->write(readint(in));
        }
        fclose(in);
@@ -254,7 +254,7 @@ void main_nodisplay() {
          printf("STEP ISR: %lu calls, avg %lu cycles, max %lu cycles\n\r",
                 (unsigned long)calls, (unsigned long)avg, (unsigned long)max);
        }
-	   while (!mot->ready() );
+	   mot->waitReady();
        mot->moveToAbsolute(cfg->xrest, cfg->yrest, cfg->zrest);
     }
   }

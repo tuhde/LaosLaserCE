@@ -186,7 +186,7 @@ void LaosExtent::ShowBoundaries(LaosMotion *mot) const
 			{
 				x=m_MaxX;
 			}
-			while(mot->queue()) {} // wait until motion is done
+			mot->waitIdle(); // wait until motion is done
 			if(step == 1)
 			{
 				// wait a bit after going to the origin, so the user knows it's the origin:

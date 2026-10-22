@@ -152,6 +152,17 @@ int LaosMotion::ready()
 }
 
 
+void LaosMotion::waitReady()
+{
+  while (plan_queue_full()) plan_wait_for_change();
+}
+
+void LaosMotion::waitIdle()
+{
+  while (plan_queue_items()) plan_wait_for_change();
+}
+
+
 /**
 *** queue()
 *** return nr of items in the queue (0 is empty)
@@ -267,11 +278,11 @@ void LaosMotion::write(int i)
                 
                 if ( action.ActionType == AT_BITMAP )
                 {
-                  while ( queue() );// printf("-"); // wait for queue to empty
+                  waitIdle(); // wait for queue to empty
                   plan_set_accel(cfg->xaccel);
                   plan_buffer_line(&action);
                   UpdatePlannedCoordinates(&action);
-                  while ( queue() ); // printf("*"); // wait for queue to empty
+                  waitIdle(); // wait for queue to empty
                   plan_set_accel(cfg->accel);
                 }
                 else
@@ -351,7 +362,7 @@ void LaosMotion::write(int i)
             else if ( step == 2 )
             {
            //   if ( queue() ) printf("Queue not empty... wait...\n\r");
-              while ( queue() );// printf("+"); // wait for queue to empty
+              waitIdle(); // wait for queue to empty
               bitmap_width = i;
               bitmap_enable = 1;
               bitmap_size = (bitmap_bpp * bitmap_width) / 32;

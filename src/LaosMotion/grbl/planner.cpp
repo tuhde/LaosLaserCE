@@ -32,6 +32,10 @@
 #include "planner.h"
 #include "stepper.h"
 #include "config.h"
+#include "mbed.h"
+
+// released by the step interrupt whenever it retires a block
+static Semaphore block_retired(0, 1);
 
 // The GRBL configuration (scaling etc)
 config_t config;
@@ -356,7 +360,12 @@ int plan_is_acceleration_manager_enabled() {
 void plan_discard_current_block() {
   if (block_buffer_head != block_buffer_tail) {
     block_buffer_tail = next_block_index( block_buffer_tail );
+    block_retired.release();
   }
+}
+
+void plan_wait_for_change() {
+  block_retired.try_acquire_for(10ms);
 }
 
 block_t *plan_get_current_block() {

@@ -42,6 +42,8 @@ public:
   LaosMotion();
   ~LaosMotion();
   void write(int i); // write command word to motion controller
+  void waitReady(); // sleep until ready() is true
+  void waitIdle(); // sleep until all queued motion is done
   int ready(); // returns true if we are ready to accept a new instruction
   void reset(); // reset the instruction decoder and motion controller
   void home(int xhome, int yhome, int zhome); // home the system, move to the sensors and set the specified position
