@@ -326,8 +326,10 @@ void TFTPServer::poll() {
 	                    break;
 	                case 0x04:
 	                    // last packet received, send next if there is one
+	                    if (((buff[2] << 8) + (unsigned char)buff[3]) != blockcnt)
+	                        break;  // ACK for an older block (duplicate), ignore
 	                    dupcnt = 0;
-	                    if (len == 516) {
+	                    if (blocksize == 516) {     // the block just acknowledged was full, so there may be more
 	                        getBlock();
 	                        sendBlock();
 	                    } else { //EOF
