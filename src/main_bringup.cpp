@@ -49,6 +49,7 @@ int main()
 {
   printf(VERSION_STRING "\r\nBRING-UP\r\n");
   sd_selftest();
+  if (SDcheckFirmware()) NVIC_SystemReset();   // flashes update.bin and resets, if present
   cfg = new GlobalConfig("config.txt");
   printf("CONFIG OK: xscale=%d yscale=%d nodisplay=%d\r\n", cfg->xscale, cfg->yscale, cfg->nodisplay);
   mot = new LaosMotion();

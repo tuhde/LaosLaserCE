@@ -6,7 +6,12 @@
             "target.semihosting-enabled": false
         },
         "LPC1768": {
-            "target.components_add": ["SD"]
+            "target.components_add": ["SD"],
+            // The upper half of the flash is the staging area for firmware updates from SD
+            // (see src/LaosFile/firmware_update.h), so the application must fit in the lower half.
+            "target.memory_bank_config": {
+                "IROM1": {"size": 0x40000, "start": 0x0}
+            }
         }
     }
 }

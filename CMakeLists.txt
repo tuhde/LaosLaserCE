@@ -48,6 +48,7 @@ add_executable(laser
     src/LaosDisplay/MODI2C.cpp
     src/LaosDisplay/MODI2C_IRQ.cpp
     src/LaosFile/laosfilesystem.cpp
+    src/LaosFile/firmware_update.cpp
     src/LaosMenu/LaosMenu.cpp
 )
 target_include_directories(laser PRIVATE

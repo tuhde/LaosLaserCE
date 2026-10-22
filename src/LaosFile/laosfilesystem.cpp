@@ -22,6 +22,7 @@
  *
  */
 #include "laosfilesystem.h"
+#include "firmware_update.h"
 
 LaosFileSystem::LaosFileSystem(PinName mosi, PinName miso, PinName sclk, PinName cs, const char* name)
         : FATFileSystem(name), bd(mosi, miso, sclk, cs) {
@@ -535,39 +536,27 @@ int isFirmware(char *filename) {
         return 0;
 } 
 
-void installFirmware(char *filename) {
-    removeFirmware();
-    char buff[512];
+int installFirmware(char *filename) {
     extern LaosFileSystem sd;
-    printf("Copy firmware file %s\n\r", filename);
+    printf("Install firmware file %s\n\r", filename);
     FILE *fp = sd.openfile(filename, "rb");
-    if (fp) {
-        FILE *fp2 = fopen("/local/firmware.bin", "wb");
-        while (!feof(fp)) {
-            int size = fread(buff, 1, 512, fp);
-            fwrite(buff, 1, size, fp2);
-        }
-        fclose(fp);
-        fclose(fp2);
+    if (fp == NULL) {
+        printf("Cannot open %s\n\r", filename);
+        return FW_ERR_READ;
     }
+    int err = firmware_stage(fp);
+    fclose(fp);
+    if (err != FW_OK) {
+        printf("Firmware not installed (error %d)\n\r", err);
+        // remove the file, otherwise we would try again on every boot
+        removefile(filename);
+        return err;
+    }
+    // remove the file first: if the update works, we must not install it again
     removefile(filename);
-}
-
-void removeFirmware() { // remove old firmware from SD
-    DIR *d;
-    struct dirent *p;
-    d = opendir("/local");
-    if(d != NULL) {
-        while((p = readdir(d)) != NULL) {
-            if (isFirmware(p->d_name)) {
-                char name[32];
-                sprintf(name, "/local/%s", p->d_name);
-                remove(name);
-            } 
-        }
-    } else {
-        printf("removeFirmware: Could not open directory!\n\r");
-    }
+    printf("Flashing...\n\r");
+    fflush(stdout);
+    firmware_apply();
 }
 
 char* getLaosFile() {
@@ -596,11 +585,14 @@ int SDcheckFirmware() {
         while((p = readdir(d)) != NULL) {
             if (strncmp(p->d_name, "longname.sy",11)) {
                 if (isFirmware(p->d_name)) {
-                    installFirmware(p->d_name);
-                    return 1;
+                    // does not return when the update succeeds (the board resets)
+                    int err = installFirmware(p->d_name);
+                    closedir(d);
+                    return err == FW_OK;
                 }
             }
         }
+        closedir(d);
     } else {
         printf("SDcheckFirmware: Could not open directory!\n\r");
     }
