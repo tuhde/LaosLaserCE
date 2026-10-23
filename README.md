@@ -4,6 +4,32 @@ Embedded software for the LaOS laser cutter controller (LAOS board, mbed LPC1768
 built on [Mbed CE](https://github.com/mbed-ce/mbed-os) with CMake and Ninja.
 Configuration files for several machines are in `config/`.
 
+## Successor to LaosLaser/Firmware
+
+This project (LaosLaserCE) is the successor to the original
+[LaosLaser/Firmware](https://github.com/LaosLaser/Firmware), which was built on the discontinued
+mbed 2 library. The laser, motion and menu code is carried over; what changed:
+
+- **Platform:** ported to Mbed CE with CMake/Ninja and pyOCD flashing. The old build system
+  (`mk.sh`, gcc4mbed, `mbed.patch`, the vendored SDFileSystem) is gone, as are the prebuilt
+  mbed 2 binaries.
+- **Configuration:** `config.txt` is read from the SD card instead of the semihosted `/local`
+  drive, so the firmware runs without a debugger attached.
+- **Networking:** Ethernet uses the Mbed netsocket stack; the MAC address is derived from the
+  LPC1768 serial number, so every board keeps a stable address.
+- **Stepper timing:** the step interrupt runs from TIMER2 instead of `mbed::Ticker` (about 6 us
+  per step), and waiting for the motion queue sleeps instead of busy-waiting.
+- **Firmware update:** the SD card update flashes the new image itself (IAP) instead of
+  relying on the mbed USB drive.
+- **New:** headless mode (a `config.txt` received over TFTP is saved and the board restarts),
+  serial console acting as display and keypad, step interrupt and heap statistics in the log,
+  and the `iotest` board test ported to Mbed CE.
+- **Fixed:** TFTP reads of files over one block and the last written block, `cleandir()` deleting
+  `config.txt`, heap exhaustion after the first job, menu text leaking memory, and endless
+  rebooting without a display when `sys.nodisplay` is 0.
+
+See `CHANGELOG` for details and the history of the original project.
+
 ## What it does
 
 - Reads `config.txt` from the SD card and drives the X/Y/Z axes (grbl based planner,
@@ -21,8 +47,8 @@ Requirements: `gcc-arm-none-eabi` (tested with 14.2), `cmake` (3.19 or newer), `
 `mbed-os/venv` on the first configure.
 
 ```
-git clone --recursive https://github.com/LaosLaser/Firmware.git
-cd Firmware
+git clone --recursive https://github.com/tuhde/LaosLaserCE.git
+cd LaosLaserCE
 cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Develop
 ninja -C build laser iotest
 ```
@@ -86,8 +112,3 @@ arm-none-eabi-gdb build/laser.elf --eval-command \
 
 Semihosting is disabled (the configuration is read from the SD card), so `reset halt` works.
 At the end of a job in headless mode, memory and step interrupt statistics are printed.
-
-## Releases
-
-Old binaries built with mbed 2 are kept in `releases/` and are not compatible with the
-SD card based configuration. See `CHANGELOG`.

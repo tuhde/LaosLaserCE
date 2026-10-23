@@ -4,5 +4,3 @@ build/
 *.hex
 *.map
 *.disasm
-# release binaries are tracked in releases/
-!releases/*.bin
